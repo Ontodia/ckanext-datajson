@@ -38,10 +38,11 @@ class DataJsonPlugin(p.SingletonPlugin):
         # DataJsonPlugin.route_edata_path = config.get("ckanext.enterprisedatajson.path", "/enterprisedata.json")
         DataJsonPlugin.route_enabled = config.get("ckanext.datajson.url_enabled", "True") == 'True'
         DataJsonPlugin.route_path = config.get("ckanext.datajson.path", "/data.json")
-        DataJsonPlugin.route_ld_path = config.get(" ckanext.datajsonld.path",
+        DataJsonPlugin.route_ld_path = config.get("ckanext.datajsonld.path",
                                                   re.sub(r"\.json$", ".jsonld", DataJsonPlugin.route_path))
         DataJsonPlugin.ld_id = config.get("ckanext.datajsonld.id", config.get("ckan.site_url"))
         DataJsonPlugin.ld_title = config.get("ckan.site_title", "Catalog")
+        DataJsonPlugin.map_filename = config.get("ckanext.datajson.map_filename", "export.map.json")
         DataJsonPlugin.site_url = config.get("ckan.site_url")
 
         DataJsonPlugin.inventory_links_enabled = config.get("ckanext.datajson.inventory_links_enabled",
@@ -194,7 +195,7 @@ class DataJsonController(BaseController):
                 packages = DataJsonController._get_ckan_datasets()
                 # packages = p.toolkit.get_action("current_package_list_with_resources")(None, {})
 
-            json_export_map = get_export_map_json('export.map.json')
+            json_export_map = get_export_map_json(DataJsonPlugin.map_filename)
 
             if json_export_map:
                 for pkg in packages:
@@ -396,8 +397,8 @@ class DataJsonController(BaseController):
 
     @staticmethod
     def _get_ckan_datasets(org=None, with_private=False):
-        n = 500
-        page = 1
+        n = 100
+        page = int(request.params.get('page', 1))
         dataset_list = []
 
         q = '+capacity:public' if not with_private else '*:*'
@@ -406,19 +407,15 @@ class DataJsonController(BaseController):
         if org:
             fq += " AND organization:" + org
 
-        while True:
-            search_data_dict = {
-                'q': q,
-                'fq': fq,
-                'sort': 'metadata_modified desc',
-                'rows': n,
-                'start': n * (page - 1),
-            }
+        search_data_dict = {
+            'q': q,
+            'fq': fq,
+            'sort': 'metadata_modified desc',
+            'rows': n,
+            'start': n * (page - 1),
+        }
 
-            query = p.toolkit.get_action('package_search')({}, search_data_dict)
-            if len(query['results']):
-                dataset_list.extend(query['results'])
-                page += 1
-            else:
-                break
+        query = p.toolkit.get_action('package_search')({}, search_data_dict)
+        if len(query['results']):
+            dataset_list.extend(query['results'])
         return dataset_list
