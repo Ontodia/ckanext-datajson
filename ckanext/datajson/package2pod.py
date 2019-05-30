@@ -308,7 +308,8 @@ class Wrappers:
         'irregular': 'irregular',
         'notplanned': 'irregular',
         'unknown': 'irregular',
-        'not updated': 'irregular'
+        'not updated': 'irregular',
+        'other': 'irregular'
     }
 
     @staticmethod
@@ -318,6 +319,10 @@ class Wrappers:
     @staticmethod
     def build_contact_point(someValue):
         import sys, os
+        try:
+            from ckan.common import config
+        except ImportError:
+            from pylons import config
 
         try:
             contact_point_map = Wrappers.full_field_map.get('contactPoint').get('map')
@@ -326,14 +331,26 @@ class Wrappers:
 
             package = Wrappers.pkg
 
+            contact_fields = [('maintainer', 'maintainer_email'),
+                              ('contact_name', 'contact_email'),
+                              ('author', 'author_email')]
+
+            default_name = ''
+            default_email = ''
+            for name_field, email_field in contact_fields:
+                if package.get(name_field) and package.get(email_field):
+                    default_name = name_field
+                    default_email = email_field
+                    break
+
             if contact_point_map.get('fn').get('extra'):
                 fn = get_extra(package, contact_point_map.get('fn').get('field'),
                                get_extra(package, "Contact Name",
-                                         package.get('maintainer')))
+                                         package.get(default_name)))
             else:
                 fn = package.get(contact_point_map.get('fn').get('field'),
                                  get_extra(package, "Contact Name",
-                                           package.get('maintainer')))
+                                           package.get(default_name)))
 
             fn = get_responsible_party(fn)
 
@@ -346,10 +363,10 @@ class Wrappers:
 
             if contact_point_map.get('hasEmail').get('extra'):
                 email = get_extra(package, contact_point_map.get('hasEmail').get('field'),
-                                  package.get('maintainer_email'))
+                                  package.get(default_email))
             else:
                 email = package.get(contact_point_map.get('hasEmail').get('field'),
-                                    package.get('maintainer_email'))
+                                    package.get(default_email))
 
             if email and not is_redacted(email) and '@' in email:
                 email = 'mailto:' + email
@@ -363,10 +380,18 @@ class Wrappers:
                 email = Package2Pod.filter(email)
 
             contact_point = OrderedDict([('@type', 'vcard:Contact')])
+
             if fn:
                 contact_point['fn'] = fn
+            else:
+                contact_point['fn'] = config.get('ckanext.datajson.contact_name',
+                                                 config.get('email_to'))
+
             if email:
                 contact_point['hasEmail'] = email
+            else:
+                contact_point['hasEmail'] = config.get('ckanext.datajson.contact_email',
+                                                       config.get('ckan.site_title'))
 
             return contact_point
         except Exception as e:
@@ -437,8 +462,6 @@ class Wrappers:
                     if 'accessURL' in resource:
                         resource.pop('accessURL')
                     resource['downloadURL'] = res_url
-                    if 'mediaType' not in resource:
-                        log.warn("Missing mediaType for resource in package ['%s']", package.get('id'))
             else:
                 log.warn("Missing downloadURL for resource in package ['%s']", package.get('id'))
 
