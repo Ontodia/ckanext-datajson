@@ -184,8 +184,8 @@ class DataJsonController(BaseController):
                 if 'datajson' == export_type:
                     # we didn't check ownership for this type of export, so never load private datasets here
                     packages = DataJsonController._get_ckan_datasets(org=owner_org)
-                    if not packages:
-                        packages = self.get_packages(owner_org=owner_org, with_private=False)
+                    # if not packages:
+                    #     packages = self.get_packages(owner_org=owner_org, with_private=False)
                 else:
                     packages = self.get_packages(owner_org=owner_org, with_private=True)
             else:
@@ -397,7 +397,7 @@ class DataJsonController(BaseController):
 
     @staticmethod
     def _get_ckan_datasets(org=None, with_private=False):
-        n = 100
+        n = 500
         page = int(request.params.get('page', 1))
         dataset_list = []
 
